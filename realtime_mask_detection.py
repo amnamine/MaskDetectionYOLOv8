@@ -139,6 +139,7 @@ class RealtimeMaskDetection:
         
         frame_count = 0
         start_time = time.time()
+        fps = 0.0  # Initialize fps variable
         show_help = True
         
         while True:
