@@ -4,7 +4,7 @@ from ultralytics import YOLO
 import time
 
 class RealtimeMaskDetection:
-    def __init__(self, confidence_threshold=0.5):
+    def __init__(self, confidence_threshold=0.3):
         self.confidence_threshold = confidence_threshold
         self.model = None
         self.cap = None
@@ -28,12 +28,17 @@ class RealtimeMaskDetection:
             print("❌ Error: Could not open webcam")
             exit(1)
         
-        # Set camera properties
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        # Get screen dimensions
+        screen_width = 1366  # User's screen width
+        screen_height = 768  # User's screen height
+        
+        # Set camera properties for full screen
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, screen_width)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, screen_height)
         self.cap.set(cv2.CAP_PROP_FPS, 30)
         
         print("📹 Camera initialized successfully!")
+        print(f"🖥️ Full screen resolution: {screen_width}x{screen_height}")
     
     def get_class_color(self, class_id):
         """Get color for each class"""
@@ -98,22 +103,20 @@ class RealtimeMaskDetection:
         
         return detections_count
     
-    def draw_stats(self, frame, fps, detections_count):
+    def draw_stats(self, frame, detections_count):
         """Draw statistics on frame"""
         # Create stats background
-        cv2.rectangle(frame, (10, 10), (300, 120), (0, 0, 0), -1)
-        cv2.rectangle(frame, (10, 10), (300, 120), (255, 255, 255), 2)
+        cv2.rectangle(frame, (10, 10), (300, 100), (0, 0, 0), -1)
+        cv2.rectangle(frame, (10, 10), (300, 100), (255, 255, 255), 2)
         
         # Draw stats text
-        cv2.putText(frame, f"FPS: {fps:.1f}", (20, 35), 
+        cv2.putText(frame, f"Detections: {detections_count}", (20, 35), 
                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
-        cv2.putText(frame, f"Detections: {detections_count}", (20, 60), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
-        cv2.putText(frame, f"Confidence: {self.confidence_threshold}", (20, 85), 
+        cv2.putText(frame, f"Confidence: {self.confidence_threshold}", (20, 60), 
                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
         
         # Draw legend
-        legend_y = 150
+        legend_y = 130
         cv2.putText(frame, "Legend:", (20, legend_y), 
                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
         
@@ -134,26 +137,19 @@ class RealtimeMaskDetection:
         print("📋 Controls:")
         print("   - Press 'q' to quit")
         print("   - Press 's' to save screenshot")
-        print("   - Press 'c' to change confidence threshold")
         print("   - Press 'h' to show/hide help")
         
-        frame_count = 0
-        start_time = time.time()
-        fps = 0.0  # Initialize fps variable
         show_help = True
+        window_created = False
+        
+        # Destroy any existing windows
+        cv2.destroyAllWindows()
         
         while True:
             ret, frame = self.cap.read()
             if not ret:
                 print("❌ Error reading frame")
                 break
-            
-            # Calculate FPS
-            frame_count += 1
-            if frame_count % 30 == 0:
-                end_time = time.time()
-                fps = 30 / (end_time - start_time)
-                start_time = time.time()
             
             # Run detection
             results = self.model(frame, verbose=False)
@@ -162,7 +158,7 @@ class RealtimeMaskDetection:
             detections_count = self.draw_detections(frame, results)
             
             # Draw statistics
-            self.draw_stats(frame, fps, detections_count)
+            self.draw_stats(frame, detections_count)
             
             # Show help text
             if show_help:
@@ -170,14 +166,19 @@ class RealtimeMaskDetection:
                     "Controls:",
                     "Q - Quit",
                     "S - Save Screenshot", 
-                    "C - Change Confidence",
                     "H - Hide/Show Help"
                 ]
                 
                 for i, text in enumerate(help_text):
-                    y_pos = frame.shape[0] - 120 + (i * 20)
+                    y_pos = frame.shape[0] - 100 + (i * 20)
                     cv2.putText(frame, text, (frame.shape[1] - 200, y_pos), 
-                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+            
+            # Create window only once on first frame
+            if not window_created:
+                cv2.namedWindow('🎭 Real-time Mask Detection', cv2.WINDOW_NORMAL)
+                cv2.setWindowProperty('🎭 Real-time Mask Detection', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+                window_created = True
             
             # Display frame
             cv2.imshow('🎭 Real-time Mask Detection', frame)
@@ -193,25 +194,10 @@ class RealtimeMaskDetection:
                 filename = f"mask_detection_{timestamp}.jpg"
                 cv2.imwrite(filename, frame)
                 print(f"📸 Screenshot saved: {filename}")
-            elif key == ord('c'):
-                self.change_confidence_threshold()
             elif key == ord('h'):
                 show_help = not show_help
         
         self.cleanup()
-    
-    def change_confidence_threshold(self):
-        """Change confidence threshold interactively"""
-        print(f"\n🔧 Current confidence threshold: {self.confidence_threshold}")
-        try:
-            new_threshold = float(input("Enter new confidence threshold (0.1-1.0): "))
-            if 0.1 <= new_threshold <= 1.0:
-                self.confidence_threshold = new_threshold
-                print(f"✅ Confidence threshold updated to: {self.confidence_threshold}")
-            else:
-                print("❌ Invalid threshold. Must be between 0.1 and 1.0")
-        except ValueError:
-            print("❌ Invalid input. Please enter a number.")
     
     def cleanup(self):
         """Clean up resources"""
@@ -225,7 +211,7 @@ def main():
     print("=" * 40)
     
     # Initialize detection system
-    detector = RealtimeMaskDetection(confidence_threshold=0.5)
+    detector = RealtimeMaskDetection(confidence_threshold=0.3)
     
     try:
         detector.run_detection()
