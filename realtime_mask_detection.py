@@ -28,7 +28,7 @@ class RealtimeMaskDetection:
             print("❌ Error: Could not open webcam")
             exit(1)
         
-        # Get screen dimensions
+        # Get screen dimensions - user's actual screen resolution
         screen_width = 1366  # User's screen width
         screen_height = 768  # User's screen height
         
@@ -77,6 +77,13 @@ class RealtimeMaskDetection:
                     x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
                     x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
                     
+                    # Ensure bounding box is within image bounds
+                    height, width = frame.shape[:2]
+                    x1 = max(0, min(x1, width - 1))
+                    y1 = max(0, min(y1, height - 1))
+                    x2 = max(0, min(x2, width - 1))
+                    y2 = max(0, min(y2, height - 1))
+                    
                     # Get class
                     cls = int(box.cls[0].cpu().numpy())
                     class_name = self.get_class_name(cls)
@@ -88,16 +95,20 @@ class RealtimeMaskDetection:
                     # Create label
                     label = f"{class_name}: {conf:.2f}"
                     
-                    # Get label size
-                    label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)[0]
+                    # Get label size with smaller font
+                    label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.3, 1)[0]
+                    
+                    # Ensure label background is within image bounds
+                    label_x = x1
+                    label_y = max(label_size[1] + 3, y1 - 3)  # Ensure label doesn't go above image
                     
                     # Draw label background
-                    cv2.rectangle(frame, (x1, y1 - label_size[1] - 10), 
-                                (x1 + label_size[0], y1), color, -1)
+                    cv2.rectangle(frame, (label_x, label_y - label_size[1]), 
+                                (label_x + label_size[0], label_y), color, -1)
                     
                     # Draw label text
-                    cv2.putText(frame, label, (x1, y1 - 5), 
-                              cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                    cv2.putText(frame, label, (label_x, label_y - 2), 
+                              cv2.FONT_HERSHEY_SIMPLEX, 0.3, (255, 255, 255), 1)
                     
                     detections_count += 1
         
@@ -105,29 +116,29 @@ class RealtimeMaskDetection:
     
     def draw_stats(self, frame, detections_count):
         """Draw statistics on frame"""
-        # Create stats background
-        cv2.rectangle(frame, (10, 10), (300, 100), (0, 0, 0), -1)
-        cv2.rectangle(frame, (10, 10), (300, 100), (255, 255, 255), 2)
+        # Create smaller stats background to maximize image space
+        cv2.rectangle(frame, (10, 10), (250, 80), (0, 0, 0), -1)
+        cv2.rectangle(frame, (10, 10), (250, 80), (255, 255, 255), 1)
         
-        # Draw stats text
-        cv2.putText(frame, f"Detections: {detections_count}", (20, 35), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
-        cv2.putText(frame, f"Confidence: {self.confidence_threshold}", (20, 60), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+        # Draw stats text with smaller font
+        cv2.putText(frame, f"Detections: {detections_count}", (15, 30), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
+        cv2.putText(frame, f"Confidence: {self.confidence_threshold}", (15, 50), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
         
-        # Draw legend
-        legend_y = 130
-        cv2.putText(frame, "Legend:", (20, legend_y), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+        # Draw compact legend
+        legend_y = 100
+        cv2.putText(frame, "Legend:", (15, legend_y), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
         
         colors = [(0, 255, 0), (0, 165, 255), (0, 0, 255)]
         names = ["With Mask", "Mask Incorrect", "No Mask"]
         
         for i, (color, name) in enumerate(zip(colors, names)):
-            y_pos = legend_y + 25 + (i * 20)
-            cv2.circle(frame, (20, y_pos - 5), 5, color, -1)
-            cv2.putText(frame, name, (35, y_pos), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+            y_pos = legend_y + 20 + (i * 15)
+            cv2.circle(frame, (15, y_pos - 3), 3, color, -1)
+            cv2.putText(frame, name, (25, y_pos), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.3, (255, 255, 255), 1)
     
     def run_detection(self):
         """Main detection loop"""
@@ -170,9 +181,9 @@ class RealtimeMaskDetection:
                 ]
                 
                 for i, text in enumerate(help_text):
-                    y_pos = frame.shape[0] - 100 + (i * 20)
-                    cv2.putText(frame, text, (frame.shape[1] - 200, y_pos), 
-                               cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+                    y_pos = frame.shape[0] - 80 + (i * 15)
+                    cv2.putText(frame, text, (frame.shape[1] - 150, y_pos), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
             
             # Create window only once on first frame
             if not window_created:

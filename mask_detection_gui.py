@@ -8,6 +8,9 @@ import os
 from pathlib import Path
 
 class MaskDetectionGUI:
+    IMAGE_DISPLAY_WIDTH = 800
+    IMAGE_DISPLAY_HEIGHT = 500
+
     def __init__(self, root):
         self.root = root
         self.root.title("Mask Detection System - YOLOv8")
@@ -112,8 +115,9 @@ class MaskDetectionGUI:
         self.reset_btn.pack(side=tk.LEFT, padx=10)
         
         # Image display frame
-        image_frame = tk.Frame(main_frame, bg='#34495e', relief=tk.RAISED, bd=2)
-        image_frame.pack(fill=tk.BOTH, expand=True, pady=20)
+        image_frame = tk.Frame(main_frame, bg='#34495e', relief=tk.RAISED, bd=2, width=self.IMAGE_DISPLAY_WIDTH, height=self.IMAGE_DISPLAY_HEIGHT)
+        image_frame.pack(fill=tk.NONE, expand=False, pady=20)
+        image_frame.pack_propagate(False)  # Prevent frame from resizing to fit contents
         
         # Image label
         self.image_label = tk.Label(
@@ -122,8 +126,8 @@ class MaskDetectionGUI:
             font=("Helvetica", 16),
             fg='#bdc3c7',
             bg='#34495e',
-            width=50,
-            height=15
+            width=self.IMAGE_DISPLAY_WIDTH,
+            height=self.IMAGE_DISPLAY_HEIGHT
         )
         self.image_label.pack(expand=True, fill=tk.BOTH, padx=20, pady=20)
         
@@ -208,19 +212,14 @@ class MaskDetectionGUI:
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to load image: {e}")
     
-    def resize_image_for_display(self, image, max_width=600, max_height=400):
-        """Resize image for display while maintaining aspect ratio"""
-        height, width = image.shape[:2]
-        
-        # Calculate scaling factor
-        scale = min(max_width / width, max_height / height)
-        
-        if scale < 1:
-            new_width = int(width * scale)
-            new_height = int(height * scale)
-            return cv2.resize(image, (new_width, new_height))
-        
-        return image
+    def resize_image_for_display(self, image, max_width=None, max_height=None):
+        """Resize image for display to fixed size (ignore aspect ratio for consistent display)"""
+        if max_width is None:
+            max_width = self.IMAGE_DISPLAY_WIDTH
+        if max_height is None:
+            max_height = self.IMAGE_DISPLAY_HEIGHT
+        resized_image = cv2.resize(image, (max_width, max_height))
+        return resized_image
     
     def predict_image(self):
         """Run prediction on the loaded image"""
@@ -304,7 +303,7 @@ class MaskDetectionGUI:
     def reset_image(self):
         """Reset the image to original state"""
         # Reset to initial state - completely clear everything
-        self.image_label.configure(image="", text="📸 Click 'Load Image' to start")
+        self.image_label.configure(image="", text="📸 Click 'Load Image' to start", width=self.IMAGE_DISPLAY_WIDTH, height=self.IMAGE_DISPLAY_HEIGHT)
         self.predict_btn.configure(state=tk.DISABLED)
         self.reset_btn.configure(state=tk.DISABLED)
         self.results_label.configure(text="Ready to detect masks!")
@@ -321,4 +320,4 @@ def main():
     root.mainloop()
 
 if __name__ == "__main__":
-    main() 
+    main()
